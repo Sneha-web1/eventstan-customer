@@ -1,0 +1,12 @@
+
+> eventstan@0.1.0 dev
+> next dev -p 3002
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3002
+- Network:       http://192.168.1.100:3002
+- Environments: .env.local
+✓ Ready in 2.7s
+
+○ Compiling / ...
+ GET / 200 in 9.7s (next.js: 8.6s, application-code: 1053ms)
