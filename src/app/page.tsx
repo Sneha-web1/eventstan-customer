@@ -348,7 +348,7 @@ export default function LandingPage() {
               </svg>
             </Link>
             <Link
-              href="/vendor-dashboard"
+              href="/vendor-partners"
               className="border-2 border-gray-300 text-gray-700 px-6 sm:px-8 py-3 rounded-full font-semibold hover:bg-gray-900 hover:border-gray-900 hover:text-white transition-colors text-sm sm:text-base text-center bg-white/50"
             >
               List Your Service
