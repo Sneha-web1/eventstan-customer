@@ -23,7 +23,7 @@ export default function ServiceCard({ service }: Props) {
 
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group">
-      <Link href={`/services/${service.id}`}>
+      <Link href={`/services/${service.slug || service.id}`}>
         <div className="relative h-52 overflow-hidden cursor-pointer">
           <img
             src={service.image_url}
@@ -37,7 +37,7 @@ export default function ServiceCard({ service }: Props) {
       </Link>
 
       <div className="p-4">
-        <Link href={`/services/${service.id}`}>
+        <Link href={`/services/${service.slug || service.id}`}>
           <h3 className="font-semibold text-gray-900 text-base mb-1 hover:text-orange-500 transition-colors cursor-pointer">
             {service.title}
           </h3>

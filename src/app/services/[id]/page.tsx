@@ -1,7 +1,6 @@
 "use client";
 import { use, useState } from "react";
-import { notFound } from "next/navigation";
-import { SERVICES, PACKAGES } from "@/lib/data";
+import { useMarketplace } from "@/lib/useMarketplace";
 import BookingModal from "@/components/ui/BookingModal";
 import PackageCard from "@/components/ui/PackageCard";
 import { Package } from "@/types";
@@ -9,15 +8,29 @@ import { useCart } from "@/lib/CartContext";
 
 export default function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const service = SERVICES.find((s) => s.id === id);
+  const { services, packages: allPackages, loading, error } = useMarketplace();
+  const service = services.find((s) => s.slug === id || s.id === id);
   const [showBooking, setShowBooking] = useState(false);
   const [selectedPkg, setSelectedPkg] = useState<Package | undefined>();
   const { addService, items } = useCart();
   const [galleryIndex, setGalleryIndex] = useState(0);
 
-  if (!service) return notFound();
+  if (loading) {
+    return <div className="max-w-6xl mx-auto px-4 py-16 text-center text-gray-400">Loading service…</div>;
+  }
+  if (error) {
+    return <div className="max-w-6xl mx-auto px-4 py-16 text-center text-red-400">Failed to load service: {error}</div>;
+  }
+  if (!service) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-16 text-center text-gray-400">
+        <p className="mb-4">Service not found.</p>
+        <a href="/services" className="text-orange-500 font-semibold hover:underline">Back to Services</a>
+      </div>
+    );
+  }
 
-  const packages = PACKAGES.filter((p) => p.service_id === service.id);
+  const packages = allPackages.filter((p) => p.service_id === service.id);
   const inCart = items.some((i) => i.id === `svc-${service.id}`);
   const gallery = service.gallery || [service.image_url];
 

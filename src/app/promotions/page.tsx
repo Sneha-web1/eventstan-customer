@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
-import { PROMOTIONS } from "@/lib/promotionsData";
+import { useMarketplace } from "@/lib/useMarketplace";
+import { isPromotionalPackage, packageToPromotion, RawApiPackage } from "@/lib/promotionsMapper";
 import { Promotion } from "@/types";
 import { useCart } from "@/lib/CartContext";
 import BookingModal from "@/components/ui/BookingModal";
@@ -447,10 +448,21 @@ function PromotionCard({ promo, onBook }: { promo: Promotion; onBook: (p: Promot
 }
 
 export default function PromotionsPage() {
+  const { packages, loading, error } = useMarketplace();
   const [search,   setSearch]   = useState("");
   const [category, setCategory] = useState("All");
   const [sortBy,   setSortBy]   = useState("featured");
   const [booking,  setBooking]  = useState<Promotion | null>(null);
+
+  // Only packages flagged as promotional (isPromotional/is_promotional) on the
+  // /packages API response are shown here — this is the live "Promotions" feed.
+  const PROMOTIONS: Promotion[] = useMemo(
+    () =>
+      (packages as RawApiPackage[])
+        .filter(isPromotionalPackage)
+        .map(packageToPromotion),
+    [packages]
+  );
 
   const filtered = useMemo(() => {
     let result = PROMOTIONS.filter(p => {
@@ -469,7 +481,7 @@ export default function PromotionsPage() {
     if (sortBy === "featured")   result = [...result].sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
 
     return result;
-  }, [search, category, sortBy]);
+  }, [PROMOTIONS, search, category, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -520,6 +532,12 @@ export default function PromotionsPage() {
         ))}
       </div>
 
+      {loading ? (
+        <div className="text-center py-20 text-gray-400">Loading promotions…</div>
+      ) : error ? (
+        <div className="text-center py-20 text-red-400">Failed to load promotions: {error}</div>
+      ) : (
+      <>
       <p className="text-sm text-gray-400 mb-5">
         {filtered.length} promotion{filtered.length !== 1 ? "s" : ""} available
       </p>
@@ -542,6 +560,8 @@ export default function PromotionsPage() {
             Clear Filters
           </button>
         </div>
+      )}
+      </>
       )}
 
       {booking && (

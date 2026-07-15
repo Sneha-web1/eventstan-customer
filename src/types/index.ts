@@ -1,5 +1,6 @@
 export interface Service {
   id: string;
+  slug?: string;
   title: string;
   category: "Venue" | "Decor" | "Catering" | "Entertainment";
   description: string;

@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { SERVICES, CATEGORY_FILTERS } from "@/lib/data";
+import { CATEGORY_FILTERS } from "@/lib/data";
+import { useMarketplace } from "@/lib/useMarketplace";
 import ServiceCard from "@/components/ui/ServiceCard";
 import { Service } from "@/types";
 
@@ -35,6 +36,7 @@ function getPriceFilter(range: string): (s: Service) => boolean {
 
 function ServicesContent() {
   const searchParams = useSearchParams();
+  const { services: SERVICES, loading, error } = useMarketplace();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("newest");
@@ -364,6 +366,12 @@ function ServicesContent() {
 
         {/* Results */}
         <div className="flex-1 min-w-0">
+          {loading ? (
+            <div className="text-center py-16 text-gray-400">Loading services…</div>
+          ) : error ? (
+            <div className="text-center py-16 text-red-400">Failed to load services: {error}</div>
+          ) : (
+          <>
           <p className="text-sm text-gray-500 mb-4">{filtered.length} services found</p>
           {filtered.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
@@ -376,6 +384,8 @@ function ServicesContent() {
                 <ServiceCard key={service.id} service={service} />
               ))}
             </div>
+          )}
+          </>
           )}
         </div>
       </div>

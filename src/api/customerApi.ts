@@ -85,6 +85,37 @@ export const getService = (id: string) => request<Service>(`/services/${encodeUR
 export const getPackages = () => request<Package[]>("/packages");
 export const getReviews = () => request<Review[]>("/reviews");
 
+export interface ApiBlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  coverImage: string;
+  category: string;
+  tags: string[];
+  status: string;
+  isFeatured: boolean;
+  authorName: string;
+  authorAvatar?: string;
+  authorBio?: string;
+  publishedAt: string;
+  readTime: number;
+  createdAt?: string;
+  updatedAt?: string;
+  relatedServiceIds?: string[];
+  relatedPackageIds?: string[];
+}
+
+// The public endpoint only returns PUBLISHED posts, which is what the
+// customer-facing blog should show.
+export const getBlogs = () => request<ApiBlogPost[]>("/blogs");
+
+export const getBlogBySlug = async (slug: string) => {
+  const posts = await getBlogs();
+  return posts.find((p) => p.slug === slug) ?? null;
+};
+
 export async function getMarketplaceData() {
   const [services, packages, reviews] = await Promise.all([getServices(), getPackages(), getReviews()]);
   return { services, packages, reviews };
