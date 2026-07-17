@@ -4,6 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { CATEGORY_FILTERS } from "@/lib/data";
 import { useMarketplace } from "@/lib/useMarketplace";
 import ServiceCard from "@/components/ui/ServiceCard";
+import { Layers, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { Service } from "@/types";
 
 const CATEGORIES = ["All", "Venue", "Decor", "Catering", "Entertainment", "Rentals"];
@@ -365,7 +367,7 @@ function ServicesContent() {
         </aside>
 
         {/* Results */}
-        <div className="flex-1 min-w-0">
+        {/* <div className="flex-1 min-w-0">
           {loading ? (
             <div className="text-center py-16 text-gray-400">Loading services…</div>
           ) : error ? (
@@ -385,6 +387,56 @@ function ServicesContent() {
               ))}
             </div>
           )}
+          </>
+          )}
+        </div> */}
+        <div className="flex-1 min-w-0">
+          {loading ? (
+            <div className="text-center py-16 text-gray-400">Loading services…</div>
+          ) : error ? (
+            <div className="text-center py-16 text-red-400">Failed to load services: {error}</div>
+          ) : (
+          <>
+          <p className="text-sm text-gray-500 mb-4">0 services found</p>
+          <div className="text-center py-20 px-4">
+            <div className="relative w-24 h-24 mx-auto mb-6">
+              <div className="w-24 h-24 rounded-full bg-orange-50 flex items-center justify-center">
+                <Layers className="w-9 h-9 text-orange-500" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-5 h-5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75 animate-ping" />
+                <span className="relative inline-flex rounded-full h-5 w-5 bg-orange-400" />
+              </div>
+            </div>
+
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
+              We&apos;re Updating Our Inventory
+            </h3>
+            <p className="text-gray-500 mb-1">
+              Our team is busy curating an amazing selection of vendors for you.
+            </p>
+            <p className="text-gray-400 text-sm mb-8 flex items-center justify-center gap-1.5">
+              Check back soon — great things are coming your way!
+              <Sparkles className="w-4 h-4 text-orange-300" />
+            </p>
+
+            <div className="flex items-center justify-center gap-3">
+              {hasActiveFilters && (
+                <button
+                  onClick={clearAllFilters}
+                  className="border border-gray-200 text-gray-700 px-6 py-3 rounded-full font-semibold hover:bg-gray-50 transition-colors bg-white"
+                >
+                  Clear Filters
+                </button>
+              )}
+              <Link
+                href="/"
+                className="bg-orange-500 text-white px-6 py-3 rounded-full font-semibold hover:bg-orange-600 transition-colors"
+              >
+                Back to Home
+              </Link>
+            </div>
+          </div>
           </>
           )}
         </div>
