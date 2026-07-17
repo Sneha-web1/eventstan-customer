@@ -47,6 +47,86 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export interface BudgetRangeInput {
+  min: number;
+  max: number;
+  currency: string;
+}
+
+export interface UserLeadInput {
+  fullName: string;
+  email: string;
+  phone: string;
+  eventType: string;
+  preferredEventDate?: string;
+  expectedGuestCount?: number;
+  budgetRange?: BudgetRangeInput;
+  servicesNeeded?: string[];
+  additionalDetails?: string;
+}
+
+export interface VendorLeadInput {
+  businessName: string;
+  yourName: string;
+  email: string;
+  phone?: string;
+  websiteSocialMedia?: string[];
+  serviceCategoryId: string;
+  cityId: string;
+  yearsOfExperience?: number;
+  message?: string;
+}
+
+export interface Country {
+  id: number;
+  code: string;
+  name: string;
+  defaultCurrency: string;
+  flag: string;
+  currencySymbol: string;
+  phoneCode: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface City {
+  id: string;
+  name: string;
+  countryId?: number;
+  status?: string;
+}
+
+// Fallback used if /master-data/countries fails, so phone country-code
+// selection still works (matches the API's current sample data).
+const FALLBACK_COUNTRIES: Country[] = [
+  {
+    id: 1,
+    code: "AE",
+    name: "United Arab Emirates (UAE)",
+    defaultCurrency: "UAE DIRHAM",
+    flag: "🇦🇪",
+    currencySymbol: "AED",
+    phoneCode: "+971",
+    status: "Active",
+    createdAt: "",
+    updatedAt: "",
+  },
+];
+
+// Fallback used if /master-data/cities fails (or doesn't exist yet), so
+// the City/Area dropdown still works with UAE's main cities.
+const FALLBACK_CITIES: City[] = [
+  { id: "dubai", name: "Dubai" },
+  { id: "abu-dhabi", name: "Abu Dhabi" },
+  { id: "sharjah", name: "Sharjah" },
+  { id: "ajman", name: "Ajman" },
+  { id: "ras-al-khaimah", name: "Ras Al Khaimah" },
+  { id: "fujairah", name: "Fujairah" },
+  { id: "umm-al-quwain", name: "Umm Al Quwain" },
+  { id: "al-ain", name: "Al Ain" },
+];
+
 export const customerApi = {
   auth: {
     login: (email: string, password: string) =>
@@ -68,6 +148,34 @@ export const customerApi = {
       request<T>("/bookings/checkout", { method: "POST", body: JSON.stringify(payload) }),
     cancel: <T>(id: string, reason: string) =>
       request<T>(`/bookings/${id}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+  },
+  leads: {
+    // Contact page — "Request a Callback" form
+    submitUserLead: <T = unknown>(payload: UserLeadInput) =>
+      request<T>("/user-leads", { method: "POST", body: JSON.stringify(payload) }),
+    // Vendor Partners page — "List Your Service" form
+    submitVendorLead: <T = unknown>(payload: VendorLeadInput) =>
+      request<T>("/vendor-leads", { method: "POST", body: JSON.stringify(payload) }),
+  },
+  masterData: {
+    getCountries: async (): Promise<Country[]> => {
+      try {
+        const countries = await request<Country[]>("/master-data/countries");
+        return countries.filter((c) => c.status === "Active");
+      } catch (err) {
+        console.error("Error fetching countries:", err);
+        return FALLBACK_COUNTRIES;
+      }
+    },
+    // NOTE: /master-data/cities returns 404 — confirmed not live yet on the
+    // API (unlike /master-data/countries and /master-data/categories, which
+    // both work). Using the static UAE city list directly for now instead of
+    // hitting a known-dead endpoint. Once a real cities endpoint exists,
+    // swap the body of this function back to a `request()` call like
+    // getCountries above.
+    getCities: async (): Promise<City[]> => {
+      return FALLBACK_CITIES;
+    },
   },
 };
 

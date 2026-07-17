@@ -1,25 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FaArrowLeft } from "react-icons/fa";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const SERVICE_CATEGORIES = [
-  "Venue",
-  "Catering",
-  "Photography",
-  "Videography",
-  "Decor & Florals",
-  "Entertainment",
-  "DJ & Music",
-  "Makeup & Hair",
-  "Lighting",
-  "Transportation",
-  "Planning & Coordination",
-  "Other",
-];
+import { FaArrowLeft, FaLink } from "react-icons/fa";
+import { customerApi } from "@/api/customerApi";
+import type { Country, City } from "@/api/customerApi";
+import { categoryService, type CategoryWithMetadata } from "@/services/api/category.service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,15 +14,20 @@ interface Step1Data {
   yourName: string;
   email: string;
   phone: string;
-  website: string;
+  websites: string[];
 }
 
 interface Step2Data {
-  serviceCategory: string;
+  serviceCategoryId: string;
   cityArea: string;
   yearsOfExperience: string;
   description: string;
 }
+
+// Strips numbers only (keeps everything else the user types, e.g. "Bloom & Petal")
+const stripDigits = (value: string) => value.replace(/[0-9]/g, "");
+// Digits only
+const sanitizeDigits = (value: string) => value.replace(/\D/g, "");
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -44,16 +35,71 @@ const page = () => {
   const [step, setStep] = useState<1 | 2>(1);
   const [submitted, setSubmitted] = useState(false);
 
+  const [categories, setCategories] = useState<CategoryWithMetadata[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [countryCode, setCountryCode] = useState("+971");
+
+  const [cities, setCities] = useState<City[]>([]);
+  const [citiesLoading, setCitiesLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    categoryService.fetchCategoriesWithMetadata().then((cats) => {
+      if (!cancelled) {
+        setCategories(cats);
+        setCategoriesLoading(false);
+      }
+    });
+    customerApi.masterData.getCountries().then((list) => {
+      if (!cancelled && list.length > 0) {
+        setCountries(list);
+        setCountryCode(list[0].phoneCode);
+      }
+    });
+    customerApi.masterData.getCities().then((list) => {
+      if (!cancelled) {
+        setCities(list);
+        setCitiesLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [step1, setStep1] = useState<Step1Data>({
     businessName: "",
     yourName: "",
     email: "",
     phone: "",
-    website: "",
+    websites: [],
   });
 
+  // Text currently typed into the "add a link" box (not yet added to the list)
+  const [websiteInput, setWebsiteInput] = useState("");
+
+  const addWebsite = () => {
+    const value = websiteInput.trim();
+    if (!value) return;
+    if (step1.websites.includes(value)) {
+      setWebsiteInput("");
+      return;
+    }
+    setStep1((prev) => ({ ...prev, websites: [...prev.websites, value] }));
+    setWebsiteInput("");
+  };
+
+  const removeWebsite = (value: string) => {
+    setStep1((prev) => ({
+      ...prev,
+      websites: prev.websites.filter((w) => w !== value),
+    }));
+  };
+
   const [step2, setStep2] = useState<Step2Data>({
-    serviceCategory: "",
+    serviceCategoryId: "",
     cityArea: "",
     yearsOfExperience: "",
     description: "",
@@ -62,30 +108,70 @@ const page = () => {
   const [errors1, setErrors1] = useState<Partial<Step1Data>>({});
   const [errors2, setErrors2] = useState<Partial<Step2Data>>({});
 
+  const [submitStatus, setSubmitStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const validateStep1 = () => {
     const errs: Partial<Step1Data> = {};
     if (!step1.businessName.trim()) errs.businessName = "Required";
     if (!step1.yourName.trim()) errs.yourName = "Required";
     if (!step1.email.trim() || !/\S+@\S+\.\S+/.test(step1.email))
       errs.email = "Valid email required";
+    if (!step1.phone.trim()) errs.phone = "Required";
     setErrors1(errs);
     return Object.keys(errs).length === 0;
   };
 
   const validateStep2 = () => {
     const errs: Partial<Step2Data> = {};
-    if (!step2.serviceCategory) errs.serviceCategory = "Required";
+    if (!step2.serviceCategoryId) errs.serviceCategoryId = "Required";
     if (!step2.cityArea.trim()) errs.cityArea = "Required";
+    if (!step2.yearsOfExperience.trim()) errs.yearsOfExperience = "Required";
     setErrors2(errs);
     return Object.keys(errs).length === 0;
   };
 
   const handleContinue = () => {
+    if (websiteInput.trim()) addWebsite();
     if (validateStep1()) setStep(2);
   };
 
-  const handleSubmit = () => {
-    if (validateStep2()) setSubmitted(true);
+  const handleSubmit = async () => {
+    if (!validateStep2()) return;
+
+    setSubmitError(null);
+    setSubmitStatus("loading");
+
+    const websiteSocialMedia = step1.websites;
+
+    const payload = {
+      businessName: step1.businessName,
+      yourName: step1.yourName,
+      email: step1.email,
+      phone: step1.phone ? `${countryCode}${step1.phone}` : undefined,
+      websiteSocialMedia,
+      serviceCategoryId: step2.serviceCategoryId,
+      // cityId now comes from the City/Area dropdown (see customerApi.masterData.getCities).
+      cityId: step2.cityArea,
+      yearsOfExperience: step2.yearsOfExperience
+        ? Number(step2.yearsOfExperience.replace(/\D/g, "")) || undefined
+        : undefined,
+      message: step2.description || undefined,
+    };
+
+    try {
+      await customerApi.leads.submitVendorLead(payload);
+
+      setSubmitStatus("idle");
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitStatus("error");
+      setSubmitError(
+        err instanceof Error ? err.message : "Something went wrong. Please try again."
+      );
+    }
   };
 
   const inputClass = (hasError?: boolean) =>
@@ -274,7 +360,10 @@ const page = () => {
                         placeholder="e.g. Bloom & Petal Events"
                         value={step1.businessName}
                         onChange={(e) =>
-                          setStep1({ ...step1, businessName: e.target.value })
+                          setStep1({
+                            ...step1,
+                            businessName: stripDigits(e.target.value),
+                          })
                         }
                         className={inputClass(!!errors1.businessName)}
                       />
@@ -293,7 +382,10 @@ const page = () => {
                         placeholder="Full name"
                         value={step1.yourName}
                         onChange={(e) =>
-                          setStep1({ ...step1, yourName: e.target.value })
+                          setStep1({
+                            ...step1,
+                            yourName: stripDigits(e.target.value),
+                          })
                         }
                         className={inputClass(!!errors1.yourName)}
                       />
@@ -327,17 +419,43 @@ const page = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Phone
+                        Phone <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="tel"
-                        placeholder="+1 555 000 0000"
-                        value={step1.phone}
-                        onChange={(e) =>
-                          setStep1({ ...step1, phone: e.target.value })
-                        }
-                        className={inputClass()}
-                      />
+                      <div
+                        className={`flex items-stretch overflow-hidden rounded-xl border bg-gray-50 transition-colors focus-within:bg-white focus-within:ring-2 ${
+                          errors1.phone
+                            ? "border-red-400 focus-within:border-red-500"
+                            : "border-gray-200 focus-within:border-orange-400 focus-within:ring-orange-100"
+                        }`}
+                      >
+                        <select
+                          value={countryCode}
+                          onChange={(e) => setCountryCode(e.target.value)}
+                          className="flex-shrink-0 border-r border-gray-200 bg-transparent py-3 pl-3 pr-2 text-sm text-gray-700 outline-none"
+                        >
+                          {countries.map((c) => (
+                            <option key={c.id} value={c.phoneCode}>
+                              {c.flag} {c.phoneCode}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          placeholder="50 000 0000"
+                          value={step1.phone}
+                          onChange={(e) =>
+                            setStep1({
+                              ...step1,
+                              phone: sanitizeDigits(e.target.value),
+                            })
+                          }
+                          className="w-full min-w-0 bg-transparent px-3 py-3 text-sm text-gray-900 placeholder-gray-400 outline-none"
+                        />
+                      </div>
+                      {errors1.phone && (
+                        <p className="text-xs text-red-500 mt-1">{errors1.phone}</p>
+                      )}
                     </div>
                   </div>
 
@@ -345,15 +463,51 @@ const page = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Website / Social Media
                     </label>
-                    <input
-                      type="text"
-                      placeholder="https://yourwebsite.com or @handle"
-                      value={step1.website}
-                      onChange={(e) =>
-                        setStep1({ ...step1, website: e.target.value })
-                      }
-                      className={inputClass()}
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Add links like your website, Instagram, Facebook"
+                        value={websiteInput}
+                        onChange={(e) => setWebsiteInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addWebsite();
+                          }
+                        }}
+                        className="w-full px-4 py-3 rounded-full border-2 border-orange-300 text-sm outline-none transition-colors bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={addWebsite}
+                        disabled={!websiteInput.trim()}
+                        className="flex-shrink-0 w-12 h-12 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label="Add link"
+                      >
+                        <FaLink className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {step1.websites.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {step1.websites.map((site) => (
+                          <span
+                            key={site}
+                            className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-full pl-3.5 pr-2.5 py-1.5 text-sm text-orange-600 font-medium"
+                          >
+                            {site}
+                            <button
+                              type="button"
+                              onClick={() => removeWebsite(site)}
+                              aria-label={`Remove ${site}`}
+                              className="text-orange-500 hover:text-orange-700 transition-colors"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -375,19 +529,22 @@ const page = () => {
                       </label>
                       <div className="relative">
                         <select
-                          value={step2.serviceCategory}
+                          value={step2.serviceCategoryId}
+                          disabled={categoriesLoading}
                           onChange={(e) =>
                             setStep2({
                               ...step2,
-                              serviceCategory: e.target.value,
+                              serviceCategoryId: e.target.value,
                             })
                           }
-                          className={`appearance-none ${inputClass(!!errors2.serviceCategory)} text-gray-700`}
+                          className={`appearance-none ${inputClass(!!errors2.serviceCategoryId)} text-gray-700 disabled:opacity-60`}
                         >
-                          <option value="">Select category</option>
-                          {SERVICE_CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>
-                              {cat}
+                          <option value="">
+                            {categoriesLoading ? "Loading categories..." : "Select category"}
+                          </option>
+                          {categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
                             </option>
                           ))}
                         </select>
@@ -408,9 +565,9 @@ const page = () => {
                           </svg>
                         </div>
                       </div>
-                      {errors2.serviceCategory && (
+                      {errors2.serviceCategoryId && (
                         <p className="text-xs text-red-500 mt-1">
-                          {errors2.serviceCategory}
+                          {errors2.serviceCategoryId}
                         </p>
                       )}
                     </div>
@@ -418,15 +575,41 @@ const page = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         City / Area <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. New York, NY"
-                        value={step2.cityArea}
-                        onChange={(e) =>
-                          setStep2({ ...step2, cityArea: e.target.value })
-                        }
-                        className={inputClass(!!errors2.cityArea)}
-                      />
+                      <div className="relative">
+                        <select
+                          value={step2.cityArea}
+                          disabled={citiesLoading}
+                          onChange={(e) =>
+                            setStep2({ ...step2, cityArea: e.target.value })
+                          }
+                          className={`appearance-none ${inputClass(!!errors2.cityArea)} text-gray-700 disabled:opacity-60`}
+                        >
+                          <option value="">
+                            {citiesLoading ? "Loading cities..." : "Select city / area"}
+                          </option>
+                          {cities.map((city) => (
+                            <option key={city.id} value={city.id}>
+                              {city.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                          <svg
+                            width="16"
+                            height="16"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </div>
+                      </div>
                       {errors2.cityArea && (
                         <p className="text-xs text-red-500 mt-1">
                           {errors2.cityArea}
@@ -437,20 +620,26 @@ const page = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Years of Experience
+                      Years of Experience <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. 5 years"
+                      inputMode="numeric"
+                      placeholder="e.g. 5"
                       value={step2.yearsOfExperience}
                       onChange={(e) =>
                         setStep2({
                           ...step2,
-                          yearsOfExperience: e.target.value,
+                          yearsOfExperience: sanitizeDigits(e.target.value),
                         })
                       }
-                      className={inputClass()}
+                      className={inputClass(!!errors2.yearsOfExperience)}
                     />
+                    {errors2.yearsOfExperience && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors2.yearsOfExperience}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -461,25 +650,42 @@ const page = () => {
                       placeholder="Describe what makes your service special, the events you typically cover, your packages, etc."
                       value={step2.description}
                       onChange={(e) =>
-                        setStep2({ ...step2, description: e.target.value })
+                        setStep2({
+                          ...step2,
+                          description: e.target.value.slice(0, 500),
+                        })
                       }
+                      maxLength={500}
                       rows={5}
                       className={`${inputClass()} resize-none`}
                     />
+                    <p className="mt-1 text-right text-xs text-gray-400">
+                      {step2.description.length}/500 characters
+                    </p>
                   </div>
+
+                  {submitStatus === "error" && submitError && (
+                    <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
+                      {submitError}
+                    </p>
+                  )}
 
                   <div className="flex gap-3 mt-2">
                     <button
                       onClick={() => setStep(1)}
-                      className="flex-1 border-2 border-gray-200 text-gray-700 py-3.5 rounded-full font-semibold text-sm hover:bg-gray-50 transition-colors"
+                      disabled={submitStatus === "loading"}
+                      className="flex-1 border-2 border-gray-200 text-gray-700 py-3.5 rounded-full font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
                     >
                       Back
                     </button>
                     <button
                       onClick={handleSubmit}
-                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-full font-semibold text-sm transition-colors shadow-md hover:shadow-lg"
+                      disabled={submitStatus === "loading"}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-full font-semibold text-sm transition-colors shadow-md hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      Submit Application
+                      {submitStatus === "loading"
+                        ? "Submitting..."
+                        : "Submit Application"}
                     </button>
                   </div>
                 </div>
