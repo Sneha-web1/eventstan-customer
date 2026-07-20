@@ -357,7 +357,7 @@ export const REVIEWS: Review[] = [
     comment:
       "It was my first time working with Mehak and the team, and the experience exceeded our expectations. From start to finish, they were professional, organized, and highly responsive. Every detail was handled smoothly, and their coordination ensured everything ran seamlessly. They delivered a very successful event for us, and we truly appreciate their dedication and commitment to excellence. I would highly recommend them and look forward to working together again. ",
     event_type: "Marketing - Funcity",
-    location: "Dubai",
+    location: "Dubai",    
     created_at: "2024-03-10",
   },
 ];
