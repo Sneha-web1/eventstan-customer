@@ -124,12 +124,14 @@ function RelatedPackageCard({ pkg, services }: { pkg: Package; services: Service
   const service = services.find((s) => s.id === pkg.service_id);
   return (
     <Link href={`/services/${pkg.service_id}`} className="group block">
-      <div className="rounded-xl overflow-hidden aspect-[4/3] mb-3">
-        <img
-          src={service?.image_url ?? ""}
-          alt={pkg.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+      <div className="rounded-xl overflow-hidden aspect-[4/3] mb-3 bg-gray-100">
+        {service?.image_url ? (
+          <img
+            src={service.image_url}
+            alt={pkg.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : null}
       </div>
       <span className="text-xs font-semibold text-orange-500 uppercase tracking-wide">
         {service?.category}
@@ -255,7 +257,7 @@ export default function BlogDetailPage({ params }: PageProps) {
 
         {/* ── Article body ── */}
         <div
-          className="prose prose-gray prose-lg max-w-none mb-10
+          className="text-black prose prose-gray prose-lg max-w-none mb-10
             prose-h2:text-2xl prose-h2:font-bold prose-h2:text-gray-900 prose-h2:mt-8 prose-h2:mb-3
             prose-h3:text-lg prose-h3:font-semibold prose-h3:text-gray-800 prose-h3:mt-6 prose-h3:mb-2
             prose-p:text-gray-600 prose-p:leading-relaxed prose-p:mb-4
